@@ -2,15 +2,15 @@
   "name": "Automated Vulnerability Checker",
   "version": "0.1",
   "description": "Check SSO systems for vulnerability",
-  "permissions": ["tabs","webRequest", "webRequestBlocking",
-                  "<all_urls>"],
+  "permissions": ["storage", "unlimitedStorage", "browsingData", "cookies", "tabs", "webRequest", "webRequestBlocking",
+                  "<all_urls>","file://*","file:///*"],
   "background": {
     "scripts": ["utilities.js","background.js"]
   },
   "content_scripts": [
   {
 	"matches": ["<all_urls>"],
-	"js": ["automateSSO.js", "pressLoginButton.js"]
+	"js": ["automateSSO.js", "pressLoginButton.js","testSuite.js"]
   }
   ],
   

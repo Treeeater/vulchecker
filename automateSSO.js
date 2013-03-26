@@ -43,16 +43,16 @@ var automateSSO = new AutomateSSO();
 
 if (chrome.extension){
 	//trigger by the popup menu
-	/*chrome.extension.onMessage.addListener(
+	chrome.extension.onMessage.addListener(
 		function(request, sender, sendResponse) {
 			if (request.action == "automateSSO"){
 				automateSSO.checkEverything();
 				sendResponse({"checked":"checked"});
 			}
 		}
-	);*/
+	);
 	//auto-check every time.
-	automateSSO.checkEverything();
+	//automateSSO.checkEverything();
 }
 
 else {

@@ -15,18 +15,20 @@
     }
 
     div {
-      cursor: pointer;
       text-align: center;
       padding: 1px 3px;
       font-family: sans-serif;
       font-size: 0.8em;
       width: 100px;
       margin-top: 1px;
-      background: #cccccc;
     }
-    div:hover {
-      background: #aaaaaa;
-    }
+	.clickable {
+		cursor: pointer;
+		background: #cccccc;
+	}
+	.clickable:hover{
+		background: #aaaaaa;
+	}
     #refresh {
       border: 1px solid blue;
       color: blue;
@@ -39,12 +41,26 @@
       border: 1px solid red;
       color: red;
     }
+    #deleteCookies {
+      border: 1px solid red;
+      color: #610B5E;
+    }
+    #testSuite {
+      border: 1px solid red;
+      color: brown;
+    }
     </style>
     <script src="popup.js"></script>
   </head>
   <body>
-    <div id="refresh">Refresh Token Credentials</div>
-    <div id="clickLogin">Click Login Button</div>
-    <div id="gothroughsso">Go through SSO</div>
+	<div>Test individual functions here:</div>
+	<hr/>
+    <div id="refresh" class="clickable">Refresh Token Credentials</div>
+    <div id="clickLogin" class="clickable">Click Login Button</div>
+    <div id="gothroughsso" class="clickable">Go through SSO</div>
+	<div id="deleteCookies" class="clickable">Delete Cookies</div>
+	<div id="testSuite" class="clickable">Test suite</div>
+	<hr/>
+	<div id="reload" class="clickable">Reload Extension</div>
   </body>
 </html>

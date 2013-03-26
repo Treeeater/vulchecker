@@ -156,6 +156,9 @@ if (chrome.extension){
 				vulCheckerHelper.pressLoginButton();
 				sendResponse(vulCheckerHelper.getXPath(vulCheckerHelper.sortedAttrInfoMap[0].node));
 			}
+			if (request.action == "askForDomain"){
+				sendResponse({"domain":document.domain,"url":document.URL});
+			}
 		}
 	);
 }
