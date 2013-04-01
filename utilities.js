@@ -16,7 +16,7 @@ if (typeof String.prototype.startsWith != 'function') {
 var checkAgainstFilter = function(url, capturingPhase)
 {
 	var i = 0;
-	if (capturingPhase == 0 || capturingPhase == 3 || capturingPhase == 5){
+	if (capturingPhase == 0 || capturingPhase == 1 || capturingPhase == 4 || capturingPhase == 6 || capturingPhase == 7){
 		for (; i < capturingURLs.length; i++)
 		{
 			if (url == capturingURLs[i]) {
@@ -25,7 +25,7 @@ var checkAgainstFilter = function(url, capturingPhase)
 		}
 		return false;
 	}
-	else if (capturingPhase == 1){
+	else if (capturingPhase == 2){
 		//check idp domains and excluded patterns
 		for (i = 0; i < excludedPattern.length; i++)
 		{

@@ -78,10 +78,10 @@ function testSuiteStart(){
 	});
 }
 
-function testSuitePhase0(url){
+function testSuitePhase1(url){
 	//Getting initial anonymous session headers data.
-	//capturingPhase == 0 will trigger this.
-	log('Phase 0 - recorded anonymous header data');
+	//capturingPhase == 1 will trigger this.
+	log('Phase 1 - recorded anonymous header data');
 	var tempRecord = new trafficRecord();
 	tempRecord.url = siteToTest;
 	tempRecord.anonymousSessionRequestHeader = bufferedRequests[url];
@@ -89,97 +89,114 @@ function testSuitePhase0(url){
 	tempRecord.anonymousSessionResponseHeader = bufferedResponses[url];
 	storageRecord[siteToTest] = tempRecord;
 	//storage.set({storageRecord: storageRecord});
-	capturingPhase+=1;
+	capturingPhase++;
 }
 
-function testSuitePhase1(url){
+function testSuitePhase2(url){
 	//Clicked on the facebook login button and https://www.facebook.com/dialog/oauth/ is visited.
-	//capturingPhase == 1 will trigger this.
-	log('Phase 1 - captured fb oauth request header and url');
+	//capturingPhase == 2 will trigger this.
+	log('Phase 2 - captured fb oauth request header and url');
 	storageRecord[siteToTest].facebookDialogOAuthRequestHeader = bufferedRequests[url];
 	//storage.set({storageRecord: storageRecord});
-	capturingPhase+=1;
-}
-
-function testSuitePhase3(url){
-	//Getting authenticated session headers data.
-	//capturingPhase == 3 will trigger this.
-	log('Phase 3 - recorded authenticated header data');
-	storageRecord[siteToTest].authenticatedSessionRequestHeader = bufferedRequests[url];
-	storageRecord[siteToTest].authenticatedSessionRequestBody = bufferedRequestBodies[url];
-	storageRecord[siteToTest].authenticatedSessionResponseHeader = bufferedResponses[url];
-	//storage.set({storageRecord: storageRecord});
-	capturingPhase+=1;
-	setTimeout(revisitSiteAnonymously, 3000);
-}
-
-function testSuitePhase5(url){
-	//Getting authenticated session headers data.
-	//capturingPhase == 5 will trigger this.
-	log('Phase 5 - recorded anonymous header data for a second time');
-	storageRecord[siteToTest].anonymousSessionRequestHeader2 = bufferedRequests[url];
-	storageRecord[siteToTest].anonymousSessionRequestBody2 = bufferedRequestBodies[url];
-	storageRecord[siteToTest].anonymousSessionResponseHeader2 = bufferedResponses[url];
-	//storage.set({storageRecord: storageRecord});
-	capturingPhase+=1;
-}
-
-function revisitSiteAnonymously(){	
-	//capturingPhase == 4 will trigger this.
-	log('Phase 4 - deleting cookies and revisit the test site for a second time');
-	deleteCookies();
-	capturingPhase+=1;
-	chrome.tabs.sendMessage(testTab.id, {"action":"navigateTo", "site":siteToTest});
-}
-
-function delayRefreshTestTab()
-{
-	//This function is only invoked when the site uses javascript (as opposed to reloading) to manipulate after user logs in.
-	if (capturingPhase == 3) {
-		chrome.tabs.sendMessage(testTab.id, {"action": "navigateTo", "site":siteToTest});
-	}
-}
-
-function processBuffer(url)
-{
-	if (capturingPhase == 0 && checkAgainstFilter(url, capturingPhase))
-	{
-		//visit the page initially
-		testSuitePhase0(url);
-		deleteCookies();
-		return;
-	}
-	if (capturingPhase == 1 && checkAgainstFilter(url, capturingPhase) && loginButtonClicked)
-	{
-		testSuitePhase1(url);
-		return;
-	}
-	if (capturingPhase == 3 && checkAgainstFilter(url, capturingPhase))
-	{
-		//visit the page with authenticated cookies
-		testSuitePhase3(url);
-		return;
-	}
-	if (capturingPhase == 5 && checkAgainstFilter(url, capturingPhase))
-	{
-		//revisit the page without cookies
-		testSuitePhase5(url);
-		return;
-	}
+	capturingPhase++;
 }
 
 function processUnLoad(url)
 {
-	if ((url.startsWith("https://www.facebook.com/dialog/permissions.request") || url.startsWith("https://www.facebook.com/login.php")) && capturingPhase == 2)
+	if ((url.startsWith("https://www.facebook.com/dialog/permissions.request") || url.startsWith("https://www.facebook.com/login.php")) && capturingPhase == 3)
 	//this condition is not always correct. If the user has granted the app permission, the SSO process ends at login.php unload, but if it's the first time the user uses this app, SSO process ends at permissions.request unload.
 	//In the real testing scenario, it should end at permissions.request, becomes presumably the test account has not granted access to the app.
 	{
 		//user has went through SSO, should reload test page and record headers.
 		//Lots of sites automatically reload the homepage after SSO is done.
-		//Only when capturingPhase == 2 can trigger this.
-		log('Phase 2 - FB OAuth SSO process ended');
+		//Only when capturingPhase == 3 can trigger this.
+		log('Phase 3 - FB OAuth SSO process ended');
 		capturingPhase++;			//tell processBuffer that it's time to record authenticated session credentials.
 		setTimeout(delayRefreshTestTab,5000);			//after 5 seconds, refresh the homepage.
+	}
+}
+
+function testSuitePhase4(url){
+	//Getting authenticated session headers data.
+	//capturingPhase == 4 will trigger this.
+	log('Phase 4 - recorded authenticated header data');
+	storageRecord[siteToTest].authenticatedSessionRequestHeader = bufferedRequests[url];
+	storageRecord[siteToTest].authenticatedSessionRequestBody = bufferedRequestBodies[url];
+	storageRecord[siteToTest].authenticatedSessionResponseHeader = bufferedResponses[url];
+	//storage.set({storageRecord: storageRecord});
+	capturingPhase++;
+	setTimeout(revisitSiteAnonymously, 3000);
+}
+
+function delayRefreshTestTab()
+{
+	//This function is only invoked when the site uses javascript (as opposed to reloading) to manipulate after user logs in.
+	//capturingPhase == 4 will trigger this.
+	if (capturingPhase == 4) {
+		chrome.tabs.sendMessage(testTab.id, {"action": "navigateTo", "site":siteToTest});
+	}
+}
+
+function revisitSiteAnonymously(){	
+	//capturingPhase == 5 will trigger this.
+	log('Phase 5 - deleting cookies and revisit the test site for a second time');
+	deleteCookies();
+	capturingPhase++;
+	chrome.tabs.sendMessage(testTab.id, {"action":"navigateTo", "site":siteToTest});
+}
+
+function testSuitePhase7(url){
+	//Getting authenticated session headers data.
+	//capturingPhase == 7 will trigger this.
+	log('Phase 7 - recorded anonymous header data for a second time');
+	storageRecord[siteToTest].anonymousSessionRequestHeader2 = bufferedRequests[url];
+	storageRecord[siteToTest].anonymousSessionRequestBody2 = bufferedRequestBodies[url];
+	storageRecord[siteToTest].anonymousSessionResponseHeader2 = bufferedResponses[url];
+	//storage.set({storageRecord: storageRecord});
+	capturingPhase++;
+}
+
+function processBuffer(url)
+{
+	if (capturingPhase == 1 && checkAgainstFilter(url, capturingPhase))
+	{
+		//visit the page initially
+		testSuitePhase1(url);
+		return;
+	}
+	if (capturingPhase == 2 && checkAgainstFilter(url, capturingPhase) && loginButtonClicked)
+	{
+		testSuitePhase2(url);
+		return;
+	}
+	if (capturingPhase == 4 && checkAgainstFilter(url, capturingPhase))
+	{
+		//visit the page with authenticated cookies
+		testSuitePhase4(url);
+		return;
+	}
+	if (capturingPhase == 7 && checkAgainstFilter(url, capturingPhase))
+	{
+		//revisit the page without cookies
+		testSuitePhase7(url);
+		return;
+	}
+}
+
+function processLoaded(url){
+	if (capturingPhase == 0 && checkAgainstFilter(url, capturingPhase))
+	{
+		//first visit done
+		log('Phase 0 - done loading anonymously the first time.');
+		setTimeout( function(){chrome.tabs.sendMessage(testTab.id, {"site": siteToTest, "action": "navigateTo"});capturingPhase++;}, 2000);
+		return;
+	}
+	if (capturingPhase == 6 && checkAgainstFilter(url, capturingPhase))
+	{
+		//first visit done
+		log('Phase 6 - done loading anonymously the second time.');
+		setTimeout( function(){chrome.tabs.sendMessage(testTab.id, {"site": siteToTest, "action": "navigateTo"});capturingPhase++;}, 2000);
+		return;
 	}
 }
 
@@ -228,7 +245,8 @@ chrome.runtime.onMessage.addListener(
 			testTab = sender.tab;
 		}
 		if (request.loadedURL != undefined) {
-			processBuffer(request.loadedURL);
+			//Note: this version cannot flow through if the page never finishes loading, a.k.a. onload event never fires.
+			processLoaded(request.loadedURL);
 		}
 		if (request.unloadedURL != undefined) {
 			//log("Unloaded "+request.unloadedURL);
