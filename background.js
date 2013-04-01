@@ -17,6 +17,7 @@ var bufferedResponses = {};
 var storageRecord = {};						//used by processing functions to dump buffered requests to 'more persistent and managed records'.
 var loginButtonClicked = false;				//used to indicate whether login button has been clicked.
 var SSOAutomationStarted = false;			//used to indicate whether SSOAutomation has started.
+var testTab;								//reference to the tab that's being used to test.
 
 var check_and_redo_credentials = function () {
 	var subtabID = "";
@@ -30,7 +31,6 @@ var check_and_redo_credentials = function () {
 			{
 				var temp = changeInfo.url;
 				old_token = temp.substr(temp.indexOf("=")+1, temp.indexOf("&") - temp.indexOf("=") - 1);
-				log(temp);
 				log(old_token);
 				chrome.tabs.remove(subtabID);
 			}
@@ -56,6 +56,8 @@ function automateSSO(){
 }
 
 function testSuiteStart(){
+	capturingPhase = 0;
+	deleteCookies();
 	//user clicked on start test suite button, we get his/her input and navigate to that site.
 	chrome.tabs.getSelected(null, function(tab) {
 		chrome.tabs.sendMessage(tab.id, {action: "testSuiteStart"}, function(response) {
@@ -70,7 +72,7 @@ function testSuiteStart(){
 			}
 			domainToTest = temp;
 			chrome.tabs.getSelected(null, function(tab) {
-				chrome.tabs.sendMessage(tab.id, {"site": siteToTest, "action": "siteToTestReceived"});
+				chrome.tabs.sendMessage(tab.id, {"site": siteToTest, "action": "navigateTo"});
 			});
 		});
 	});
@@ -79,7 +81,7 @@ function testSuiteStart(){
 function testSuitePhase0(url){
 	//Getting initial anonymous session headers data.
 	//capturingPhase == 0 will trigger this.
-	log('entering phase 0');
+	log('Phase 0 - recorded anonymous header data');
 	var tempRecord = new trafficRecord();
 	tempRecord.url = siteToTest;
 	tempRecord.anonymousSessionRequestHeader = bufferedRequests[url];
@@ -93,60 +95,58 @@ function testSuitePhase0(url){
 function testSuitePhase1(url){
 	//Clicked on the facebook login button and https://www.facebook.com/dialog/oauth/ is visited.
 	//capturingPhase == 1 will trigger this.
-	log('entering phase 1');
+	log('Phase 1 - captured fb oauth request header and url');
 	storageRecord[siteToTest].facebookDialogOAuthRequestHeader = bufferedRequests[url];
 	//storage.set({storageRecord: storageRecord});
 	capturingPhase+=1;
 }
 
-function deleteCookies(){
-	//delete current domain cookie:
-	/*
-	chrome.tabs.getSelected(null, function(tab) {
-		chrome.tabs.sendMessage(tab.id, {action: "askForDomain"}, function(response) {
-			var scheme = response.url.substr(0,response.url.indexOf(':'));
-			var curdomain = response.domain;
-			var i;
-			var domainsToDelete = [];
-			while ((curdomain.match(/\./g)||[]).length>=1)
-			{
-				domainsToDelete.push(curdomain);
-				curdomain = curdomain.substr(curdomain.indexOf('.')+1, curdomain.length);
-			}
-			for (i = 0; i < domainsToDelete.length; i++)
-			{
-				//Here both getAll and remove functions are async functions, we need to use anonymous function to create closures to bind the 'i' and 'j' to function execution.
-				(function(i){
-					chrome.cookies.getAll({domain: domainsToDelete[i]}, function(cookies) {
-						for (var j=0; j<cookies.length; j++) {
-							log(scheme + "://" + domainsToDelete[i] + cookies[j].path);
-							(function(j){chrome.cookies.remove({url : scheme + "://" + domainsToDelete[i] + cookies[j].path, name: cookies[j].name})})(j);
-						}
-					})
-				})(i);
-			}
-		});
-	});
-	
-	//delete fb cookie:
-	chrome.cookies.getAll({domain: "www.facebook.com"}, function(cookies) {
-		for (var i=0; i<cookies.length;i++) {
-			chrome.cookies.remove({url: "https://www.facebook.com" + cookies[i].path, name: cookies[i].name});
-		}
-	});
-	chrome.cookies.getAll({domain: "facebook.com"}, function(cookies) {
-		for (var i=0; i<cookies.length;i++) {
-			chrome.cookies.remove({url: "https://facebook.com" + cookies[i].path, name: cookies[i].name});
-		}
-	});*/
-	chrome.browsingData.removeCookies({});			//for deleting all user cookies on all sites from all times.
+function testSuitePhase3(url){
+	//Getting authenticated session headers data.
+	//capturingPhase == 3 will trigger this.
+	log('Phase 3 - recorded authenticated header data');
+	storageRecord[siteToTest].authenticatedSessionRequestHeader = bufferedRequests[url];
+	storageRecord[siteToTest].authenticatedSessionRequestBody = bufferedRequestBodies[url];
+	storageRecord[siteToTest].authenticatedSessionResponseHeader = bufferedResponses[url];
+	//storage.set({storageRecord: storageRecord});
+	capturingPhase+=1;
+	setTimeout(revisitSiteAnonymously, 3000);
+}
+
+function testSuitePhase5(url){
+	//Getting authenticated session headers data.
+	//capturingPhase == 5 will trigger this.
+	log('Phase 5 - recorded anonymous header data for a second time');
+	storageRecord[siteToTest].anonymousSessionRequestHeader2 = bufferedRequests[url];
+	storageRecord[siteToTest].anonymousSessionRequestBody2 = bufferedRequestBodies[url];
+	storageRecord[siteToTest].anonymousSessionResponseHeader2 = bufferedResponses[url];
+	//storage.set({storageRecord: storageRecord});
+	capturingPhase+=1;
+}
+
+function revisitSiteAnonymously(){	
+	//capturingPhase == 4 will trigger this.
+	log('Phase 4 - deleting cookies and revisit the test site for a second time');
+	deleteCookies();
+	capturingPhase+=1;
+	chrome.tabs.sendMessage(testTab.id, {"action":"navigateTo", "site":siteToTest});
+}
+
+function delayRefreshTestTab()
+{
+	//This function is only invoked when the site uses javascript (as opposed to reloading) to manipulate after user logs in.
+	if (capturingPhase == 3) {
+		chrome.tabs.sendMessage(testTab.id, {"action": "navigateTo", "site":siteToTest});
+	}
 }
 
 function processBuffer(url)
 {
 	if (capturingPhase == 0 && checkAgainstFilter(url, capturingPhase))
 	{
+		//visit the page initially
 		testSuitePhase0(url);
+		deleteCookies();
 		return;
 	}
 	if (capturingPhase == 1 && checkAgainstFilter(url, capturingPhase) && loginButtonClicked)
@@ -154,13 +154,40 @@ function processBuffer(url)
 		testSuitePhase1(url);
 		return;
 	}
+	if (capturingPhase == 3 && checkAgainstFilter(url, capturingPhase))
+	{
+		//visit the page with authenticated cookies
+		testSuitePhase3(url);
+		return;
+	}
+	if (capturingPhase == 5 && checkAgainstFilter(url, capturingPhase))
+	{
+		//revisit the page without cookies
+		testSuitePhase5(url);
+		return;
+	}
+}
+
+function processUnLoad(url)
+{
+	if ((url.startsWith("https://www.facebook.com/dialog/permissions.request") || url.startsWith("https://www.facebook.com/login.php")) && capturingPhase == 2)
+	//this condition is not always correct. If the user has granted the app permission, the SSO process ends at login.php unload, but if it's the first time the user uses this app, SSO process ends at permissions.request unload.
+	//In the real testing scenario, it should end at permissions.request, becomes presumably the test account has not granted access to the app.
+	{
+		//user has went through SSO, should reload test page and record headers.
+		//Lots of sites automatically reload the homepage after SSO is done.
+		//Only when capturingPhase == 2 can trigger this.
+		log('Phase 2 - FB OAuth SSO process ended');
+		capturingPhase++;			//tell processBuffer that it's time to record authenticated session credentials.
+		setTimeout(delayRefreshTestTab,5000);			//after 5 seconds, refresh the homepage.
+	}
 }
 
 chrome.webRequest.onBeforeSendHeaders.addListener(
 	function(info) {
 		// filters should be applied here because addlistener is inflexible.
 		if (!checkAgainstFilter(info.url, capturingPhase)) return;
-		log(info);
+		//log(info);
 		bufferedRequests[info.url] = info;
 	},
 	{
@@ -172,7 +199,8 @@ chrome.webRequest.onBeforeSendHeaders.addListener(
 chrome.webRequest.onBeforeRequest.addListener(
 	function(info) {
 		if (!checkAgainstFilter(info.url, capturingPhase) || info.requestBody == undefined) return;
-		log(info.requestBody);
+		//if (info.requestBody == undefined) return;
+		//log(info.requestBody);
 		bufferedRequestBodies[info.url] = info;
 	},
 	{
@@ -184,7 +212,7 @@ chrome.webRequest.onBeforeRequest.addListener(
 chrome.webRequest.onHeadersReceived.addListener(
 	function(info) {
 		if (!checkAgainstFilter(info.url, capturingPhase)) return;
-		log(info);
+		//log(info);
 		bufferedResponses[info.url] = info;
 		processBuffer(info.url);
 	},
@@ -196,7 +224,16 @@ chrome.webRequest.onHeadersReceived.addListener(
 
 chrome.runtime.onMessage.addListener(
 	function(request, sender, sendResponse) {
-		processBuffer(request.loadedURL);
+		if (testTab == undefined) {
+			testTab = sender.tab;
+		}
+		if (request.loadedURL != undefined) {
+			processBuffer(request.loadedURL);
+		}
+		if (request.unloadedURL != undefined) {
+			//log("Unloaded "+request.unloadedURL);
+			processUnLoad(request.unloadedURL);
+		}
 	}
 );
 

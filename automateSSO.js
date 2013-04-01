@@ -52,7 +52,7 @@ if (chrome.extension){
 		}
 	);
 	//auto-check every time.
-	//automateSSO.checkEverything();
+	automateSSO.checkEverything();
 }
 
 else {

@@ -54,7 +54,7 @@ function VulCheckerHelper() {
 
 	function computeAsRoot(curNode)
 	{
-		if (curNode == null || curNode.attributes == null || curNode.nodeName == "SCRIPT") return;		//ignore all script elements
+		if (curNode == null || curNode.attributes == null || curNode.nodeName == "SCRIPT" || curNode.nodeName == "EMBED" ) return;		//ignore all script and embed elements
 		try {
 			if (curNode.nodeName != "IFRAME") {			//ignore iframe, but check its children, since it could have lots of fb/facebook in its url as false positive.
 				var i = 0;
@@ -114,6 +114,7 @@ function VulCheckerHelper() {
 	this.pressLoginButton = function(){
 		//the following two statements need to be called maybe more than 1 time until a popup is presented, because some sites alter dom tree/navigate to new page and does not first present fb login button.
 		that.searchForLoginButton(document.body);
+		//alert(that.sortedAttrInfoMap[0].score);
 		that.sortedAttrInfoMap[0].node.click();
 	}
 	
