@@ -16,7 +16,7 @@ if (typeof String.prototype.startsWith != 'function') {
 var checkAgainstFilter = function(url, capturingPhase)
 {
 	var i = 0;
-	if (capturingPhase == 0 || capturingPhase == 1 || capturingPhase == 4 || capturingPhase == 6 || capturingPhase == 7){
+	if (capturingPhase == 0 || capturingPhase == 1 || capturingPhase == 4 || capturingPhase == 6 || capturingPhase == 7 || capturingPhase == 9){
 		for (; i < capturingURLs.length; i++)
 		{
 			if (url == capturingURLs[i]) {
@@ -44,7 +44,7 @@ var checkAgainstFilter = function(url, capturingPhase)
 	return false;
 }
 
-function deleteCookies(){
+var deleteCookies = function(){
 	//delete current domain cookie:
 	/*
 	chrome.tabs.getSelected(null, function(tab) {
@@ -87,7 +87,6 @@ function deleteCookies(){
 	chrome.browsingData.removeCookies({});			//for deleting all user cookies on all sites from all times.
 }
 
-
 var storage = chrome.storage.local;
 
 var trafficRecord = function(){
@@ -102,6 +101,9 @@ var trafficRecord = function(){
 	this.authenticatedSessionRequestHeader = {};
 	this.authenticatedSessionRequestBody = {};
 	this.authenticatedSessionResponseHeader = {};
+	this.authenticatedSessionRequestHeader2 = {};
+	this.authenticatedSessionRequestBody2 = {};
+	this.authenticatedSessionResponseHeader2 = {};
 	return this;
 }
 /*

@@ -10,7 +10,7 @@ var old_signed_request = "";
 var siteToTest = "";
 var domainToTest = "";
 var capturingURLs = [];						//urls to look for in the sea of requests.
-var capturingPhase = 0;
+var capturingPhase = -1;
 var bufferedRequests = {};					//used to store freshly captured requests
 var bufferedRequestBodies = {};
 var bufferedResponses = {};
@@ -18,6 +18,7 @@ var storageRecord = {};						//used by processing functions to dump buffered req
 var loginButtonClicked = false;				//used to indicate whether login button has been clicked.
 var SSOAutomationStarted = false;			//used to indicate whether SSOAutomation has started.
 var testTab;								//reference to the tab that's being used to test.
+var FBAccount = 1;
 
 var check_and_redo_credentials = function () {
 	var subtabID = "";
@@ -78,6 +79,10 @@ function testSuiteStart(){
 	});
 }
 
+function doneTesting(){
+	capturingPhase = -1;
+}
+
 function testSuitePhase1(url){
 	//Getting initial anonymous session headers data.
 	//capturingPhase == 1 will trigger this.
@@ -103,36 +108,43 @@ function testSuitePhase2(url){
 
 function processUnLoad(url)
 {
-	if ((url.startsWith("https://www.facebook.com/dialog/permissions.request") || url.startsWith("https://www.facebook.com/login.php")) && capturingPhase == 3)
-	//this condition is not always correct. If the user has granted the app permission, the SSO process ends at login.php unload, but if it's the first time the user uses this app, SSO process ends at permissions.request unload.
-	//In the real testing scenario, it should end at permissions.request, becomes presumably the test account has not granted access to the app.
+	if (url.startsWith("https://www.facebook.com/dialog/permissions.request") && (capturingPhase == 3 || capturingPhase == 8))
+	//This condition is not always correct. If the app does ask for extra permissions, this URL is visted twice before SSO is complete.
 	{
 		//user has went through SSO, should reload test page and record headers.
-		//Lots of sites automatically reload the homepage after SSO is done.
-		//Only when capturingPhase == 3 can trigger this.
-		log('Phase 3 - FB OAuth SSO process ended');
+		//However, lots of sites automatically reload the homepage after SSO is done, so we add a delay and test only when the site does not reload itself.
+		//capturingPhase == 3 will trigger this.
+		log('Phase ' + capturingPhase.toString() + ' - FB OAuth SSO process detected for account A');
 		capturingPhase++;			//tell processBuffer that it's time to record authenticated session credentials.
-		setTimeout(delayRefreshTestTab,5000);			//after 5 seconds, refresh the homepage.
+		setTimeout(delayRefreshTestTab,10000);			//after 10 seconds, refresh the homepage.
+	}
+	//This is just for testing purposes.
+	//In the real testing scenario, it should end at permissions.request, becomes presumably the test account has not granted access to the app.
+	if (url.startsWith("https://www.facebook.com/login.php") && (capturingPhase == 3 || capturingPhase == 8))
+	{
+		log('Phase ' + capturingPhase.toString() + ' - FB OAuth SSO process detected for account A');
+		capturingPhase++;			//tell processBuffer that it's time to record authenticated session credentials.
+		setTimeout(delayRefreshTestTab,10000);			//after 10 seconds, refresh the homepage.
 	}
 }
 
 function testSuitePhase4(url){
 	//Getting authenticated session headers data.
 	//capturingPhase == 4 will trigger this.
-	log('Phase 4 - recorded authenticated header data');
+	log('Phase 4 - recorded account A header data');
 	storageRecord[siteToTest].authenticatedSessionRequestHeader = bufferedRequests[url];
 	storageRecord[siteToTest].authenticatedSessionRequestBody = bufferedRequestBodies[url];
 	storageRecord[siteToTest].authenticatedSessionResponseHeader = bufferedResponses[url];
 	//storage.set({storageRecord: storageRecord});
 	capturingPhase++;
-	setTimeout(revisitSiteAnonymously, 3000);
+	setTimeout(revisitSiteAnonymously, 5000);
 }
 
 function delayRefreshTestTab()
 {
 	//This function is only invoked when the site uses javascript (as opposed to reloading) to manipulate after user logs in.
-	//capturingPhase == 4 will trigger this.
-	if (capturingPhase == 4) {
+	//capturingPhase == 4 || 9 will trigger this.
+	if (capturingPhase == 4 || capturingPhase == 9) {
 		chrome.tabs.sendMessage(testTab.id, {"action": "navigateTo", "site":siteToTest});
 	}
 }
@@ -146,7 +158,6 @@ function revisitSiteAnonymously(){
 }
 
 function testSuitePhase7(url){
-	//Getting authenticated session headers data.
 	//capturingPhase == 7 will trigger this.
 	log('Phase 7 - recorded anonymous header data for a second time');
 	storageRecord[siteToTest].anonymousSessionRequestHeader2 = bufferedRequests[url];
@@ -156,29 +167,58 @@ function testSuitePhase7(url){
 	capturingPhase++;
 }
 
+function testSuitePhase9(url){
+	//capturingPhase == 9 will trigger this.
+	log('Phase 9 - recorded account B header data');
+	storageRecord[siteToTest].authenticatedSessionRequestHeader2 = bufferedRequests[url];
+	storageRecord[siteToTest].authenticatedSessionRequestBody2 = bufferedRequestBodies[url];
+	storageRecord[siteToTest].authenticatedSessionResponseHeader2 = bufferedResponses[url];
+	//storage.set({storageRecord: storageRecord});
+	capturingPhase++;
+}
+
 function processBuffer(url)
 {
+	//Phase 0: onload event fired on first visit to test page, anonymous session 1.
+	//Phase 1: headers received on second visit to test page, anonymous session 1.
 	if (capturingPhase == 1 && checkAgainstFilter(url, capturingPhase))
 	{
 		//visit the page initially
 		testSuitePhase1(url);
+		FBAccount = 1;
 		return;
 	}
+	//Phase 2: headers received on FB login SSO page.
 	if (capturingPhase == 2 && checkAgainstFilter(url, capturingPhase) && loginButtonClicked)
 	{
 		testSuitePhase2(url);
 		return;
 	}
+	//Phase 3: onunload event fired on FB login SSO page for account A.
+	//Phase 4: headers received on first visit to test page, authenticated session A.
 	if (capturingPhase == 4 && checkAgainstFilter(url, capturingPhase))
 	{
 		//visit the page with authenticated cookies
 		testSuitePhase4(url);
 		return;
 	}
+	//Phase 5: From 5 seconds after Phase 4. Delete all cookies and revisit the test page. Not triggered by an event.
+	//Phase 6: onload event fired on first visit to test page, anonymous session 2.
+	//Phase 7: headers received on second visit to test page, anonymous session 2.
 	if (capturingPhase == 7 && checkAgainstFilter(url, capturingPhase))
 	{
 		//revisit the page without cookies
 		testSuitePhase7(url);
+		FBAccount = 2;
+		return;
+	}
+	//Phase 8: onunload event fired on FB login SSO page for account B.
+	//Phaes 9: headers received on first visit to test page, authenticated session B.
+	if (capturingPhase == 9 && checkAgainstFilter(url, capturingPhase))
+	{
+		//after clicking login button, enter different credential and receive headers.
+		testSuitePhase9(url);
+		doneTesting();
 		return;
 	}
 }
@@ -193,7 +233,7 @@ function processLoaded(url){
 	}
 	if (capturingPhase == 6 && checkAgainstFilter(url, capturingPhase))
 	{
-		//first visit done
+		//second visit done
 		log('Phase 6 - done loading anonymously the second time.');
 		setTimeout( function(){chrome.tabs.sendMessage(testTab.id, {"site": siteToTest, "action": "navigateTo"});capturingPhase++;}, 2000);
 		return;
@@ -232,6 +272,7 @@ chrome.webRequest.onHeadersReceived.addListener(
 		//log(info);
 		bufferedResponses[info.url] = info;
 		processBuffer(info.url);
+		loginButtonClicked = false;						//reset this value for future uses.
 	},
 	{
 		urls: ["<all_urls>"]
@@ -245,18 +286,29 @@ chrome.runtime.onMessage.addListener(
 			testTab = sender.tab;
 		}
 		if (request.loadedURL != undefined) {
-			//Note: this version cannot flow through if the page never finishes loading, a.k.a. onload event never fires.
+			//Note: If the test page will notify this after onload hasn't been fired for 10 sec.
 			processLoaded(request.loadedURL);
 		}
 		if (request.unloadedURL != undefined) {
 			//log("Unloaded "+request.unloadedURL);
 			processUnLoad(request.unloadedURL);
 		}
+		if (request.requestFBAccount != undefined) {
+			sendResponse({"account":FBAccount});
+		}
+		if (request.pressedLoginButton != undefined) {
+			loginButtonClicked = true;
+			sendResponse({});
+		}
+		if (request.checkTestingStatus != undefined) {
+			sendResponse({"capturingPhase":capturingPhase});
+		}
 	}
 );
 
 function initExtension(){
 	loginButtonClicked = false;
+	capturingPhase = -1;
 	deleteCookies();
 	storage.clear();
 	log("AVC v0.2 background.js loaded.");

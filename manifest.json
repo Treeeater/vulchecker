@@ -10,7 +10,8 @@
   "content_scripts": [
   {
 	"matches": ["<all_urls>"],
-	"js": ["automateSSO.js", "pressLoginButton.js","testSuite.js"]
+	"js": ["automateSSO.js", "pressLoginButton.js","testSuite.js"],
+	"run_at": "document_start"
   }
   ],
   

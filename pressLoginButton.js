@@ -1,7 +1,7 @@
 function VulCheckerHelper() {
 
 	var that = this;
-	
+	this.clicked = false;
 	function createCookie(name,value,days) {
 		if (days) {
 			var date = new Date();
@@ -113,9 +113,25 @@ function VulCheckerHelper() {
 	
 	this.pressLoginButton = function(){
 		//the following two statements need to be called maybe more than 1 time until a popup is presented, because some sites alter dom tree/navigate to new page and does not first present fb login button.
+		if (that.clicked) return;
+		that.clicked = true;
 		that.searchForLoginButton(document.body);
 		//alert(that.sortedAttrInfoMap[0].score);
 		that.sortedAttrInfoMap[0].node.click();
+	}
+	
+	this.automaticPressLoginButton = function(){
+		chrome.extension.sendMessage({"pressedLoginButton":0}, function (response){
+			//tell background we've pressed login button.
+			vulCheckerHelper.pressLoginButton();
+		});
+	}
+	
+	this.delayedPressLoginButton = function(){
+		chrome.extension.sendMessage({"checkTestingStatus":0}, function (response){
+			//check if background is in active checking.
+			if (response.capturingPhase == 2 || response.capturingPhase == 8) setTimeout(vulCheckerHelper.automaticPressLoginButton, 2000);
+		});
 	}
 	
 	this.getXPath = function(element) {
@@ -162,6 +178,8 @@ if (chrome.extension){
 			}
 		}
 	);
+	window.addEventListener('load',vulCheckerHelper.delayedPressLoginButton);
+	setTimeout(vulCheckerHelper.delayedPressLoginButton,10000);
 }
 else {
 	//code copied to a console

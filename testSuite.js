@@ -1,5 +1,10 @@
+notified = false;
+
 function notifyOnload() {
-	chrome.extension.sendMessage({"loadedURL":document.URL});
+	if (!notified) {
+		chrome.extension.sendMessage({"loadedURL":document.URL});
+		notified = true;
+	}
 }
 
 function notifyOnbeforeunload() {
@@ -24,5 +29,6 @@ window.addEventListener('load',notifyOnload);
 
 window.addEventListener('beforeunload', notifyOnbeforeunload);
 
+window.setTimeout(notifyOnload, 10000);				//fall back to setTimeout if page doesn't finish loading after 10 sec.
 
 console.log("testSuite.js loaded");

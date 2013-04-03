@@ -1,4 +1,8 @@
 function AutomateSSO(){
+
+	this.account = 1;				//indicate which account should be used when logging in.
+	this.checked = false;
+	var that = this;
 	
 	var checkDialogOAuth = function(){
 		if (document.URL.indexOf("https://www.facebook.com/dialog/oauth")==-1) return false;
@@ -12,7 +16,7 @@ function AutomateSSO(){
 		if (document.URL.indexOf("https://www.facebook.com/login.php")==-1) return false;
 		
 		if (document.getElementById('email') == null) return false;
-		document.getElementById('email').value = "t-yuzhou@hotmail.com";		
+		document.getElementById('email').value = (that.account == 1) ? "t-yuzhou@hotmail.com" : "yachen.zho@facebook.com";	//another one is zhouyuchenking@hotmail.com
 		
 		if (document.getElementById('pass') == null) return false;
 		document.getElementById('pass').value = "msr123456";
@@ -32,10 +36,18 @@ function AutomateSSO(){
 	};
 	
 	this.checkEverything = function(){
+		if (that.checked) return;
+		that.checked = true;
 		if (checkEnterPassword()) return;
 		if (checkDialogOAuth()) return;
 		if (checkPermissionRequest()) return;
 	};
+	
+	//init test account name
+	chrome.extension.sendMessage({"requestFBAccount":0}, function (response){
+		that.account = response.account;
+	});
+	
 	return this;
 }
 
@@ -52,7 +64,9 @@ if (chrome.extension){
 		}
 	);
 	//auto-check every time.
-	automateSSO.checkEverything();
+	//wait until test account name is inited.
+	window.addEventListener('load',function(){setTimeout(automateSSO.checkEverything,500)});
+	setTimeout(automateSSO.checkEverything,1000);				//fallback if onload is not fired.	*Note*: This problem can probably be solved by writing 'run_at' : 'document.start' in manifest.json for all content scripts.
 }
 
 else {
