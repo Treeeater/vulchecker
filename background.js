@@ -93,7 +93,6 @@ function testSuitePhase1(url){
 	tempRecord.anonymousSessionRequestBody = bufferedRequestBodies[url];
 	tempRecord.anonymousSessionResponseHeader = bufferedResponses[url];
 	storageRecord[siteToTest] = tempRecord;
-	//storage.set({storageRecord: storageRecord});
 	capturingPhase++;
 }
 
@@ -102,7 +101,6 @@ function testSuitePhase2(url){
 	//capturingPhase == 2 will trigger this.
 	log('Phase 2 - captured fb oauth request header and url');
 	storageRecord[siteToTest].facebookDialogOAuthRequestHeader = bufferedRequests[url];
-	//storage.set({storageRecord: storageRecord});
 	capturingPhase++;
 }
 
@@ -135,7 +133,6 @@ function testSuitePhase4(url){
 	storageRecord[siteToTest].authenticatedSessionRequestHeader = bufferedRequests[url];
 	storageRecord[siteToTest].authenticatedSessionRequestBody = bufferedRequestBodies[url];
 	storageRecord[siteToTest].authenticatedSessionResponseHeader = bufferedResponses[url];
-	//storage.set({storageRecord: storageRecord});
 	capturingPhase++;
 	setTimeout(revisitSiteAnonymously, 5000);
 }
@@ -163,7 +160,6 @@ function testSuitePhase7(url){
 	storageRecord[siteToTest].anonymousSessionRequestHeader2 = bufferedRequests[url];
 	storageRecord[siteToTest].anonymousSessionRequestBody2 = bufferedRequestBodies[url];
 	storageRecord[siteToTest].anonymousSessionResponseHeader2 = bufferedResponses[url];
-	//storage.set({storageRecord: storageRecord});
 	capturingPhase++;
 }
 
@@ -173,9 +169,93 @@ function testSuitePhase9(url){
 	storageRecord[siteToTest].authenticatedSessionRequestHeader2 = bufferedRequests[url];
 	storageRecord[siteToTest].authenticatedSessionRequestBody2 = bufferedRequestBodies[url];
 	storageRecord[siteToTest].authenticatedSessionResponseHeader2 = bufferedResponses[url];
+	capturingPhase++;
+	testSuitePhase10();
+}
+
+function testSuitePhase10(url){
+	//capturingPhase == 10 will trigger this.
+	//This phase tries to learn what is the key cookie to authenticate the user.
+	log('Phase 10 - recorded account B header data');
+	var record = storageRecord[siteToTest];
+	
+	var authenticatedSessionRequestHeader = record.authenticatedSessionRequestHeader.requestHeaders;
+	var authenticatedSessionCookies = [];
+	
+	var i = 0;
+	for (i = 0; i < authenticatedSessionRequestHeader.length; i++)
+	{
+		if (authenticatedSessionRequestHeader[i].name == "Cookie") {
+			authenticatedSessionCookies = authenticatedSessionRequestHeader[i].value;
+			break;
+		}
+	}
+	suspects = authenticatedSessionCookies.split(';');			//suspected cookies - initial guess.
+	
+	//check if any of the two anonymous request has the same cookie.
+	
+	//anonymous session 1
+	var anonymousSessionRequestHeader = record.anonymousSessionRequestHeader.requestHeaders;
+	var anonymousSessionCookies = [];
+	for (i = 0; i < anonymousSessionRequestHeader.length; i++)
+	{
+		if (anonymousSessionRequestHeader[i].name == "Cookie") {
+			anonymousSessionCookies = anonymousSessionRequestHeader[i].value;
+			break;
+		}
+	}
+	anonymousSessionCookies = anonymousSessionCookies.split(';');					//anonymous Session 1 cookies.
+	
+	for (i = suspects.length - 1; i >= 0 ; i--)
+	{
+		if (anonymousSessionCookies.indexOf(suspects[i]) != -1) {
+			suspects.splice(i, 1);					//get it out of here.												
+		}
+	}
+	
+	//anonymouse session 2
+	var anonymousSessionRequestHeader2 = record.anonymousSessionRequestHeader2.requestHeaders;
+	var anonymousSessionCookies2 = [];
+	for (i = 0; i < anonymousSessionRequestHeader2.length; i++)
+	{
+		if (anonymousSessionRequestHeader2[i].name == "Cookie") {
+			anonymousSessionCookies2 = anonymousSessionRequestHeader2[i].value;
+			break;
+		}
+	}
+	anonymousSessionCookies2 = anonymousSessionCookies2.split(';');					//anonymous Session 2 cookies.
+	
+	for (i = suspects.length - 1; i >= 0 ; i--)
+	{
+		if (anonymousSessionCookies2.indexOf(suspects[i]) != -1) {
+			suspects.splice(i, 1);					//get it out of here.												
+		}
+	}
+	
+	//check if authenticated session B has the same cookie:
+	
+	var authenticatedSessionRequestHeader2 = record.authenticatedSessionRequestHeader2.requestHeaders;
+	var authenticatedSessionCookies2 = [];
+	for (i = 0; i < authenticatedSessionRequestHeader2.length; i++)
+	{
+		if (authenticatedSessionRequestHeader2[i].name == "Cookie") {
+			authenticatedSessionCookies2 = authenticatedSessionRequestHeader2[i].value;
+			break;
+		}
+	}
+	authenticatedSessionCookies2 = authenticatedSessionCookies2.split(';');			//authenticated Session B cookies.
+	
+	for (i = suspects.length - 1; i >= 0 ; i--)
+	{
+		if (authenticatedSessionCookies2.indexOf(suspects[i]) != -1) {
+			suspects.splice(i, 1);					//get it out of here.												
+		}
+	}
+	
 	//storage.set({storageRecord: storageRecord});
 	capturingPhase++;
 }
+
 
 function processBuffer(url)
 {
