@@ -111,34 +111,43 @@ function VulCheckerHelper() {
 		}
 	}
 	
-	this.pressLoginButton = function(){
+	this.sendLoginButtonInformation = function(){
 		//the following two statements need to be called maybe more than 1 time until a popup is presented, because some sites alter dom tree/navigate to new page and does not first present fb login button.
-		if (that.clicked) return;
-		that.clicked = true;
 		that.searchForLoginButton(document.body);
 		//alert(that.sortedAttrInfoMap[0].score);
-		that.sortedAttrInfoMap[0].node.click();
+		return {"loginButtonXPath":vulCheckerHelper.getXPath(vulCheckerHelper.sortedAttrInfoMap[0].node), "loginButtonOuterHTML":vulCheckerHelper.sortedAttrInfoMap[0].node.outerHTML};
+	}
+	
+	this.pressLoginButton = function(){
+		//the following two statements need to be called maybe more than 1 time until a popup is presented, because some sites alter dom tree/navigate to new page and does not first present fb login button.
+		that.searchForLoginButton(document.body);
+		//alert(that.sortedAttrInfoMap[0].score);
+		chrome.extension.sendMessage({"loginButtonXPath":vulCheckerHelper.getXPath(vulCheckerHelper.sortedAttrInfoMap[0].node), "loginButtonOuterHTML":vulCheckerHelper.sortedAttrInfoMap[0].node.outerHTML}, function(){vulCheckerHelper.sortedAttrInfoMap[0].node.click();});
 	}
 	
 	this.automaticPressLoginButton = function(){
 		chrome.extension.sendMessage({"pressedLoginButton":0}, function (response){
-			//tell background we've pressed login button.
-			vulCheckerHelper.pressLoginButton();
+			//tell background weare about to press the login button.
+			//response should contain whether background page has detected that FB has been visited.
+			if (response.capturingPhase == 2 || response.capturingPhase == 8) vulCheckerHelper.pressLoginButton();			//this condition ensures that once FB traffic is seen, we do not want to press login button again.
+			else clearInterval(vulCheckerHelper.automaticPressIntervalHandler);
 		});
 	}
 	
 	this.delayedPressLoginButton = function(){
+		if (that.clicked) return;
+		that.clicked = true;
 		chrome.extension.sendMessage({"checkTestingStatus":0}, function (response){
 			//check if background is in active checking.
-			if (response.capturingPhase == 2 || response.capturingPhase == 8) setTimeout(vulCheckerHelper.automaticPressLoginButton, 2000);
+			if (response.capturingPhase == 2 || response.capturingPhase == 8) vulCheckerHelper.automaticPressIntervalHandler = setInterval(vulCheckerHelper.automaticPressLoginButton, 3000);
 		});
 	}
 	
 	this.getXPath = function(element) {
 		if (element.id!=='' && typeof element.id != 'undefined')
-			return 'id("'+element.id+'")';
+			return "//"+element.tagName+"[@id='"+element.id+"']";
 		if (element===document.body)
-			return element.tagName;
+			return '/HTML/' + element.tagName;
 
 		var ix = 0;
 		if (typeof element.parentNode != 'undefined')
@@ -154,12 +163,13 @@ function VulCheckerHelper() {
 		}
 	}
 	
-	this.sortedAttrInfoMap = {};
-	this.AttrInfoMap = {};
+	this.sortedAttrInfoMap = [];
+	this.AttrInfoMap = [];
 	this.count = 0;
 	this.hasFB = false;									
 	this.hasLogin = false;								
 	this.hasLikeOrShare = false;
+	this.automaticPressIntervalHandler;
 	
 	return this;
 }
@@ -171,10 +181,12 @@ if (chrome.extension){
 		function(request, sender, sendResponse) {
 			if (request.action == "clickLoginButton"){
 				vulCheckerHelper.pressLoginButton();
-				sendResponse(vulCheckerHelper.getXPath(vulCheckerHelper.sortedAttrInfoMap[0].node));
 			}
 			if (request.action == "askForDomain"){
 				sendResponse({"domain":document.domain,"url":document.URL});
+			}
+			if (request.action == "sendLoginButtonInformation") {
+				sendResponse(vulCheckerHelper.sendLoginButtonInformation());
 			}
 		}
 	);

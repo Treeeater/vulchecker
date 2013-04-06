@@ -19,6 +19,9 @@ var loginButtonClicked = false;				//used to indicate whether login button has b
 var SSOAutomationStarted = false;			//used to indicate whether SSOAutomation has started.
 var testTab;								//reference to the tab that's being used to test.
 var FBAccount = 1;
+var loginButtonXPath = "";
+var loginButtonOuterHTML = "";
+var networkFailure = false;
 
 var check_and_redo_credentials = function () {
 	var subtabID = "";
@@ -42,7 +45,7 @@ var check_and_redo_credentials = function () {
 function clickLoginButton(){
 	chrome.tabs.getSelected(null, function(tab) {
 		chrome.tabs.sendMessage(tab.id, {action: "clickLoginButton"}, function(response) {
-			//log(response);
+			log(response);
 			loginButtonClicked = true;				//only clicking the button once doesn't mean the popup has been created. 
 		});
 	});
@@ -134,7 +137,7 @@ function testSuitePhase4(url){
 	storageRecord[siteToTest].authenticatedSessionRequestBody = bufferedRequestBodies[url];
 	storageRecord[siteToTest].authenticatedSessionResponseHeader = bufferedResponses[url];
 	capturingPhase++;
-	setTimeout(revisitSiteAnonymously, 5000);
+	setTimeout(checkLoginButtonRemoved, 10000);
 }
 
 function delayRefreshTestTab()
@@ -146,7 +149,19 @@ function delayRefreshTestTab()
 	}
 }
 
+function checkLoginButtonRemoved(){
+	chrome.tabs.sendMessage(testTab.id, {"action":"sendLoginButtonInformation"}, function(response){
+		if (response.loginButtonXPath == loginButtonXPath && response.loginButtonOuterHTML == loginButtonOuterHTML) {
+			log("login failed! After logging in the login button is still present!")
+			return;
+		}
+		log("login successful!, log in button different from anonymous session.");
+		revisitSiteAnonymously();
+	});
+}
+
 function revisitSiteAnonymously(){	
+	if (capturingPhase != 5) return;
 	//capturingPhase == 5 will trigger this.
 	log('Phase 5 - deleting cookies and revisit the test site for a second time');
 	deleteCookies();
@@ -176,7 +191,7 @@ function testSuitePhase9(url){
 function testSuitePhase10(url){
 	//capturingPhase == 10 will trigger this.
 	//This phase tries to learn what is the key cookie to authenticate the user.
-	log('Phase 10 - recorded account B header data');
+	log('Phase 10 - learning suspected cookies');
 	var record = storageRecord[siteToTest];
 	
 	var authenticatedSessionRequestHeader = record.authenticatedSessionRequestHeader.requestHeaders;
@@ -190,7 +205,7 @@ function testSuitePhase10(url){
 			break;
 		}
 	}
-	suspects = authenticatedSessionCookies.split(';');			//suspected cookies - initial guess.
+	suspects = authenticatedSessionCookies.split('; ');			//suspected cookies - initial guess.
 	
 	//check if any of the two anonymous request has the same cookie.
 	
@@ -204,7 +219,7 @@ function testSuitePhase10(url){
 			break;
 		}
 	}
-	anonymousSessionCookies = anonymousSessionCookies.split(';');					//anonymous Session 1 cookies.
+	anonymousSessionCookies = anonymousSessionCookies.split('; ');					//anonymous Session 1 cookies.
 	
 	for (i = suspects.length - 1; i >= 0 ; i--)
 	{
@@ -223,7 +238,7 @@ function testSuitePhase10(url){
 			break;
 		}
 	}
-	anonymousSessionCookies2 = anonymousSessionCookies2.split(';');					//anonymous Session 2 cookies.
+	anonymousSessionCookies2 = anonymousSessionCookies2.split('; ');					//anonymous Session 2 cookies.
 	
 	for (i = suspects.length - 1; i >= 0 ; i--)
 	{
@@ -243,7 +258,7 @@ function testSuitePhase10(url){
 			break;
 		}
 	}
-	authenticatedSessionCookies2 = authenticatedSessionCookies2.split(';');			//authenticated Session B cookies.
+	authenticatedSessionCookies2 = authenticatedSessionCookies2.split('; ');			//authenticated Session B cookies.
 	
 	for (i = suspects.length - 1; i >= 0 ; i--)
 	{
@@ -251,6 +266,8 @@ function testSuitePhase10(url){
 			suspects.splice(i, 1);					//get it out of here.												
 		}
 	}
+	
+	suspects = removeByHeuristics(suspects);			//remove popular first party cookie like GA and GAds.
 	
 	//storage.set({storageRecord: storageRecord});
 	capturingPhase++;
@@ -378,20 +395,34 @@ chrome.runtime.onMessage.addListener(
 		}
 		if (request.pressedLoginButton != undefined) {
 			loginButtonClicked = true;
-			sendResponse({});
+			sendResponse({"capturingPhase":capturingPhase});
 		}
 		if (request.checkTestingStatus != undefined) {
 			sendResponse({"capturingPhase":capturingPhase});
 		}
+		if (request.loginButtonXPath != undefined) {
+			if (loginButtonXPath == "") 
+			{
+				loginButtonXPath = request.loginButtonXPath;					//only record the first time we press the login button.
+				log(loginButtonXPath);
+			}
+			if (loginButtonOuterHTML == "") {
+				loginButtonOuterHTML = request.loginButtonOuterHTML;		//only record the first time we press the login button.
+				log(loginButtonOuterHTML);
+			}
+			sendResponse({});
+		}
 	}
 );
 
-function initExtension(){
+function startOver(){
 	loginButtonClicked = false;
 	capturingPhase = -1;
+	loginButtonOuterHTML = "";
+	loginButtonXPath = "";
 	deleteCookies();
 	storage.clear();
-	log("AVC v0.2 background.js loaded.");
 }
 
-initExtension();
+startOver();
+log("AVC v0.2 background.js loaded.");

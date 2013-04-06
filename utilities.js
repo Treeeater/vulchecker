@@ -87,6 +87,14 @@ var deleteCookies = function(){
 	chrome.browsingData.removeCookies({});			//for deleting all user cookies on all sites from all times.
 }
 
+var removeByHeuristics = function (suspects){
+	for (var i = suspects.length - 1; i >= 0 ; i--)
+	{
+		if (suspects[i].startsWith('__utm')) suspects.splice(i,1);
+	}
+	return suspects;
+}
+
 var storage = chrome.storage.local;
 
 var trafficRecord = function(){
