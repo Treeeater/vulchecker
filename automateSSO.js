@@ -16,7 +16,7 @@ function AutomateSSO(){
 		if (document.URL.indexOf("https://www.facebook.com/login.php")==-1) return false;
 		
 		if (document.getElementById('email') == null) return false;
-		document.getElementById('email').value = (that.account == 1) ? "t-yuzhou@hotmail.com" : "yachen.zho@facebook.com";	//another one is zhouyuchenking@hotmail.com
+		document.getElementById('email').value = (that.account == 1) ? "t-yuzhou@hotmail.com" : "t-yuzhou2@hotmail.com";	//another one is zhouyuchenking@hotmail.com
 		
 		if (document.getElementById('pass') == null) return false;
 		document.getElementById('pass').value = "msr123456";

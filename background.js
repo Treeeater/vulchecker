@@ -366,6 +366,7 @@ chrome.webRequest.onBeforeRequest.addListener(
 chrome.webRequest.onHeadersReceived.addListener(
 	function(info) {
 		if (!checkAgainstFilter(info.url, capturingPhase)) return;
+		//if (info.url.indexOf("facebook")==-1) return;
 		//log(info);
 		bufferedResponses[info.url] = info;
 		processBuffer(info.url);
